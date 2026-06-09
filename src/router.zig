@@ -364,23 +364,8 @@ pub fn dispatch(self: *Router, http: *HTTPRequest) !void {
         // std.log.warn("request {t} {s} didnt reply - generate auto response", .{ http.method, http.path });
     }
 
-    // Logging — future: extract into a built-in middleware
-    switch (log.level) {
-        .none => {},
-        else => {
-            log.info(http);
-
-            switch (log.level) {
-                .payload => log.payload(http),
-                .signals => log.signals(http),
-                .all => {
-                    log.signals(http);
-                    log.payload(http);
-                },
-                else => {},
-            }
-        },
-    }
+    // Post-handler logging (lives in log.zig, runs after the handler completes).
+    log.logRequest(http);
     if (!processed) {
         return http.respond("Method Not Allowed", .method_not_allowed);
     }
