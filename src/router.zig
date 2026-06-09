@@ -180,11 +180,23 @@ pub fn dispatch(self: *Router, http: *HTTPRequest) !void {
     const q = std.mem.indexOfScalar(u8, path, '?') orelse path.len;
     path = path[0..q];
 
-    // TODO - apply the onBefore middlewares
-    // TODO - errdefer the onError middlewares
+    // Run the middleware pipeline before the route handler.
+    // Middleware can halt (http.halted = true) or send a response directly.
+    if (http._middleware) |mw_ptr| {
+        const middleware = @import("middleware.zig");
+        const mw: *const middleware.Middleware = @ptrCast(@alignCast(mw_ptr));
+        for (mw.chain.items) |handler| {
+            if (http.halted) break;
+            handler(http) catch |err| {
+                log.err(http, err, .internal_server_error);
+                try http.respond("Internal Server Error", .internal_server_error);
+                return;
+            };
+        }
+    }
 
     const method_idx = @intFromEnum(http.method);
-    if (!processed) {
+    if (!http.halted and !processed) {
         if (current.handlers[method_idx]) |h| {
             h(http) catch |err| {
                 log.err(http, err, .internal_server_error);
@@ -194,10 +206,6 @@ pub fn dispatch(self: *Router, http: *HTTPRequest) !void {
         }
     }
 
-    if (processed) {
-        // TODO - run middlewares onAfter
-    }
-
     if (!http.replied) {
         // this is probably a user error - handler didnt bother
         // replying.  So raise a log error and terminate the call anyway
@@ -205,7 +213,7 @@ pub fn dispatch(self: *Router, http: *HTTPRequest) !void {
         // std.log.warn("request {t} {s} didnt reply - generate auto response", .{ http.method, http.path });
     }
 
-    // TODO - remove this after its done in logging middleware instead
+    // Logging — future: extract into a built-in middleware
     switch (log.level) {
         .none => {},
         else => {
