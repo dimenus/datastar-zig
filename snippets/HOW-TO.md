@@ -44,11 +44,10 @@ https://data-star.dev/how_tos/poll_the_backend_at_regular_intervals#steps
 
 ```zig
 const datastar = @import("datastar");
-const ISOTime = @import("iso_time");
-const Io = std.Io;
 
 fn timeHandler(http: *datastar.HTTPRequest) !void {
-    const now = ISOTime.init(Io.clock.real.now(http.io));
+    // use the built-in datetime formatter from the logging module
+    const now = try http.log.formatTimeAlloc(http.arena, http.io);
 
     var sse = try http.NewSSE();
     defer sse.close();

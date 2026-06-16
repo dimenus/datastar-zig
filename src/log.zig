@@ -43,7 +43,7 @@ pub fn info(log: Log, http: *HTTPRequest) void {
         "{s}{s}{s} {s}{}{s} {s}{t:<6}{s} {s:<60} {s}{:>8}{s} μs{s}",
         .{
             c.timestampColor(),
-            formatTimeAlloc(http),
+            formatTimeAlloc(http.arena, http.io),
             c.reset,
             c.statusColor(http.status),
             @intFromEnum(http.status),
@@ -116,8 +116,8 @@ pub fn err(_: Log, http: *HTTPRequest, error_value: anyerror, status: std.http.S
 
 /// Returns a formatted string "YYYY-MM-DD HH:MM:SS.UUUUUU"
 /// Caller owns the returned slice.
-pub fn formatTimeAlloc(http: *HTTPRequest) []u8 {
-    const micros_utc_ts: std.Io.Timestamp = std.Io.Clock.real.now(http.io);
+pub fn formatTimeAlloc(arena: std.mem.Allocator, io: std.Io) []u8 {
+    const micros_utc_ts: std.Io.Timestamp = std.Io.Clock.real.now(io);
     const micros_utc: u64 = @intCast(micros_utc_ts.toMilliseconds());
     const seconds: u47 = @intCast(@divTrunc(micros_utc, std.time.ms_per_s));
     const micros = micros_utc % std.time.ms_per_s;
@@ -138,8 +138,7 @@ pub fn formatTimeAlloc(http: *HTTPRequest) []u8 {
     const min = day_seconds.getMinutesIntoHour();
     const sec = day_seconds.getSecondsIntoMinute();
 
-    // return std.fmt.allocPrint(http.arena, "{d:0>4}-{d:0>2}-{d:0>2} {d:0>2}:{d:0>2}:{d:0>2}.{d:0>6}", .{
-    return std.fmt.allocPrint(http.arena, "{d:0>4}-{d:0>2}-{d:0>2} {d:0>2}:{d:0>2}:{d:0>2}.{d:0>3}", .{
+    return std.fmt.allocPrint(arena, "{d:0>4}-{d:0>2}-{d:0>2} {d:0>2}:{d:0>2}:{d:0>2}.{d:0>3}", .{
         year,
         month,
         day,
